@@ -6,6 +6,8 @@ macOS menü çubuğu uygulaması. `claude remote-control` sürecini saatin yanı
 başlatır/durdurur, durumunu gösterir ve Mac her açıldığında kendini geri
 başlatabilir.
 
+**Web sitesi:** https://erenbekman.github.io/claude-rc-menubar/
+
 > **Orijinal proje [ocracy](https://github.com/ocracy)'ye aittir.** Süreç
 > yönetimi, öksüz süreç koruması, log kırpma, girişte otomatik başlatma ve
 > oturum adı mantığı onun çalışmasıdır. Bu repoda

@@ -1,0 +1,282 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Claude RC — Claude Code remote control in your menu bar</title>
+<meta name="description" content="A tiny macOS menu bar app that keeps claude remote-control running, shows who is connected, and tells you when the connection drops. Scan a QR code to continue on your phone.">
+<meta name="theme-color" content="#FBFBFC" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0B1217" media="(prefers-color-scheme: dark)">
+<link rel="canonical" href="https://erenbekman.github.io/claude-rc-menubar/">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://erenbekman.github.io/claude-rc-menubar/">
+<meta property="og:title" content="Claude RC">
+<meta property="og:description" content="Your Mac runs Claude Code. Your phone holds the remote.">
+<meta property="og:image" content="https://erenbekman.github.io/claude-rc-menubar/icon.png">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:site" content="@erenbekman">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='5.5' fill='%23F7F8FA'/%3E%3Cg fill='none' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath stroke='%23233D4D' d='M16.2 7.32A7 7 0 1 0 16.2 16.68'/%3E%3Cpath stroke='%23233D4D' d='M10.16 9.42 12.74 12l-2.58 2.58'/%3E%3Cpath stroke='%23FE7F2D' d='M19.75 15.9A9.58 9.58 0 0 0 19.75 8.1'/%3E%3C/g%3E%3C/svg%3E">
+<link rel="apple-touch-icon" href="icon.png">
+<style>
+:root{
+  color-scheme:light;
+  --bg:#FBFBFC; --surface:#FFFFFF; --raised:#F2F4F6; --line:rgba(15,28,36,.09);
+  --ink:#0F1C24; --text:#2E3A42; --dim:#5E6A72; --faint:#7D878E;
+  --accent:#233D4D; --on-accent:#F2F4F6; --signal:#FE7F2D; --signal-soft:rgba(254,127,45,.12);
+  --shadow:0 30px 70px -28px rgba(15,28,36,.35);
+  --sans:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",system-ui,sans-serif;
+  --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){
+  :root{
+    color-scheme:dark;
+    --bg:#0B1217; --surface:#111B22; --raised:#17232B; --line:rgba(234,236,240,.09);
+    --ink:#EAECF0; --text:#C9CED3; --dim:#98A2AA; --faint:#6F7A82;
+    --accent:#FE7F2D; --on-accent:#000000; --signal-soft:rgba(254,127,45,.14);
+    --shadow:0 30px 80px -24px rgba(0,0,0,.8);
+  }
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.6 var(--sans);-webkit-font-smoothing:antialiased}
+a{color:var(--ink);text-decoration:underline;text-decoration-color:var(--line);text-underline-offset:3px}
+a:hover{text-decoration-color:var(--signal)}
+code{font-family:var(--mono);font-size:.9em;background:var(--raised);border-radius:5px;padding:1px 5px}
+.wrap{max-width:960px;margin:0 auto;padding:0 24px}
+.mark{display:block;color:var(--ink)}
+.mark .pulse{stroke:var(--signal)}
+
+nav{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:20px 0}
+.brand{display:flex;align-items:center;gap:9px;font-weight:600;letter-spacing:-.2px;text-decoration:none}
+.nav-links{display:flex;align-items:center;gap:20px;font-size:14px}
+.nav-links a{color:var(--dim);text-decoration:none}
+.nav-links a:hover{color:var(--ink)}
+
+.hero{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr);gap:56px;align-items:center;padding:56px 0 72px}
+h1{font-size:clamp(34px,5.2vw,54px);line-height:1.05;letter-spacing:-1.6px;margin:0 0 20px;font-weight:600}
+h1 span{color:var(--dim)}
+.lede{font-size:17px;color:var(--text);margin:0 0 28px;max-width:520px;text-wrap:pretty}
+.cta{display:flex;gap:10px;flex-wrap:wrap}
+.btn{display:inline-flex;align-items:center;gap:8px;border-radius:10px;padding:10px 18px;font-size:14px;font-weight:500;text-decoration:none;border:1px solid transparent}
+.btn-primary{background:var(--accent);color:var(--on-accent)}
+.btn-primary:hover{filter:brightness(1.12)}
+.btn-ghost{border-color:var(--line);color:var(--ink)}
+.btn-ghost:hover{background:var(--raised)}
+.cmd{display:flex;align-items:center;gap:10px;margin-top:22px;max-width:560px;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:6px 6px 6px 14px}
+.cmd code{flex:1;min-width:0;background:none;padding:0;font-size:12.5px;color:var(--text);white-space:nowrap;overflow-x:auto;scrollbar-width:none}
+.cmd code::-webkit-scrollbar{display:none}
+.cmd code b{color:var(--signal);font-weight:400}
+.copy{flex:none;border:0;border-radius:7px;background:var(--raised);color:var(--dim);font:500 12px var(--sans);padding:7px 11px;cursor:pointer}
+.copy:hover{color:var(--ink)}
+.facts{margin:18px 0 0;font-size:13px;color:var(--faint)}
+
+.stage{position:relative;display:flex;flex-direction:column;align-items:center}
+.menubar{width:100%;max-width:360px;display:flex;align-items:center;justify-content:flex-end;gap:14px;height:30px;padding:0 12px;border-radius:9px;background:var(--surface);border:1px solid var(--line);color:var(--ink);font-size:13px}
+.menubar .item{display:flex;align-items:center;gap:4px;padding:2px 7px;border-radius:6px}
+.menubar .item.on{background:var(--raised)}
+.menubar .ghost{width:14px;height:10px;border-radius:3px;background:var(--line)}
+.panel{margin-top:10px;width:min(320px,100%);filter:drop-shadow(var(--shadow))}
+.panel img{display:block;width:100%;height:auto}
+
+section{padding:72px 0;border-top:1px solid var(--line)}
+h2{font-size:clamp(24px,3vw,30px);letter-spacing:-.7px;margin:0 0 8px;font-weight:600}
+.sub{color:var(--dim);margin:0 0 36px;max-width:620px}
+.feats{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:30px 36px}
+.feat h3{margin:0 0 6px;font-size:15px;font-weight:600;display:flex;align-items:center;gap:10px}
+.feat p{margin:0;color:var(--dim);font-size:14px}
+.icon{flex:none;width:30px;height:30px;border-radius:8px;display:grid;place-items:center;background:var(--signal-soft);color:var(--signal)}
+
+.steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:28px;margin-bottom:32px}
+.step span{display:block;color:var(--signal);font-size:13px;font-family:var(--mono);margin-bottom:6px}
+.step h3{margin:0 0 4px;font-size:15px;font-weight:600}
+.step p{margin:0;color:var(--dim);font-size:14px}
+pre{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:18px 20px;overflow-x:auto;font-family:var(--mono);font-size:13px;line-height:1.75;margin:0;color:var(--dim)}
+pre b{color:var(--ink);font-weight:400}
+pre .s{color:var(--signal)}
+pre .c{color:var(--faint)}
+
+.options{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:18px}
+.option{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:20px;display:flex;flex-direction:column;gap:10px}
+.option h3{margin:0;font-size:15px;font-weight:600}
+.option p{margin:0;color:var(--dim);font-size:14px}
+.option pre{padding:12px 14px;font-size:12px;border-radius:9px;background:var(--raised);border:0;white-space:pre-wrap;word-break:break-all}
+.tag{align-self:flex-start;font-size:11px;font-weight:600;letter-spacing:.3px;text-transform:uppercase;color:var(--signal);background:var(--signal-soft);border-radius:999px;padding:2px 9px}
+
+.credits{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:18px}
+.credit{border:1px solid var(--line);border-radius:14px;padding:20px}
+.credit .who{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:8px}
+.credit .who b{font-size:15px}
+.credit .who span{font-size:13px;color:var(--faint)}
+.credit p{margin:0;color:var(--dim);font-size:14px}
+
+footer{border-top:1px solid var(--line);padding:28px 0 56px;color:var(--faint);font-size:13px;display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
+footer a{color:var(--faint)}
+footer p{margin:0;max-width:560px}
+
+@media (max-width:820px){
+  .hero{grid-template-columns:minmax(0,1fr);gap:44px;padding:36px 0 56px}
+  .nav-links a.hide-sm{display:none}
+}
+@media (max-width:480px){
+  .wrap{padding:0 16px}
+  .nav-links{gap:14px}
+  section{padding:56px 0}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<nav>
+  <a class="brand" href="#top">
+    <svg class="mark" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16.2 7.32A7 7 0 1 0 16.2 16.68"/><path d="M10.16 9.42 12.74 12l-2.58 2.58"/><path class="pulse" d="M19.75 15.9A9.58 9.58 0 0 0 19.75 8.1"/></svg>
+    Claude RC
+  </a>
+  <div class="nav-links">
+    <a class="hide-sm" href="#features">Features</a>
+    <a class="hide-sm" href="#how">How it works</a>
+    <a href="#install">Install</a>
+    <a href="https://github.com/erenbekman/claude-rc-menubar">GitHub</a>
+  </div>
+</nav>
+
+<header class="hero" id="top">
+  <div>
+    <h1>Your Mac runs Claude&nbsp;Code.<br><span>Your phone holds the remote.</span></h1>
+    <p class="lede">Claude RC is a tiny macOS menu bar app that keeps <code>claude remote-control</code> running, shows who is connected, and tells you when the line drops. Scan the QR code and pick up the session on your phone or at claude.ai/code.</p>
+    <div class="cta">
+      <a class="btn btn-primary" href="https://github.com/erenbekman/claude-rc-menubar/releases/latest/download/Claude-RC.zip">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>
+        Download for macOS
+      </a>
+      <a class="btn btn-ghost" href="https://github.com/erenbekman/claude-rc-menubar">View source</a>
+    </div>
+    <div class="cmd">
+      <code id="oneliner">curl -fsSL https://raw.githubusercontent.com/erenbekman/claude-rc-menubar/main/install.sh <b>|</b> bash</code>
+      <button class="copy" type="button" data-copy="oneliner">Copy</button>
+    </div>
+    <p class="facts">macOS 13+ · Apple silicon &amp; Intel · Swift &amp; SwiftUI, no dependencies · MIT · interface in Turkish</p>
+  </div>
+
+  <div class="stage" aria-label="Claude RC in the macOS menu bar">
+    <div class="menubar" aria-hidden="true">
+      <span class="ghost"></span><span class="ghost"></span>
+      <span class="item on">
+        <svg class="mark" width="18" height="16" viewBox="0 0 18 16" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11.86 3.99A6 6 0 1 0 11.86 12.01"/><path d="M6.6 5.8 8.8 8l-2.2 2.2"/><path d="M15.07 11.42A8.4 8.4 0 0 0 15.07 4.58"/></svg>
+        2
+      </span>
+      <span>Sat 18:42</span>
+    </div>
+    <picture class="panel">
+      <source srcset="panel-dark.png" media="(prefers-color-scheme: dark)">
+      <img src="panel-light.png" width="320" height="703" alt="The Claude RC panel: connected, two sessions, QR code for the environment link">
+    </picture>
+  </div>
+</header>
+
+<section id="features">
+  <h2>What it does</h2>
+  <p class="sub">Remote control is only useful if it is actually running when you reach for your phone. Everything here exists for that.</p>
+  <div class="feats">
+    <div class="feat">
+      <h3><span class="icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v8"/><path d="M6.3 6.8a8 8 0 1 0 11.4 0"/></svg></span>Always on</h3>
+      <p>One click to start or stop. It launches at login, starts the server a few seconds later, and if the process dies it retries five times with growing delays.</p>
+    </div>
+    <div class="feat">
+      <h3><span class="icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="6" height="6" rx="1"/><rect x="14" y="4" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><path d="M14 14h2v2M20 14v6h-4M14 18v2"/></svg></span>Scan to connect</h3>
+      <p>The environment link is one tap away as a QR code. Point your phone's camera at the panel and you are in the session. No copying, no typing.</p>
+    </div>
+    <div class="feat">
+      <h3><span class="icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20.5a2 2 0 0 0 4 0"/></svg></span>Knows when it drops</h3>
+      <p>A notification when the connection drops, when it comes back, when the server stops for good, and when a new session attaches. Click one to open the panel.</p>
+    </div>
+    <div class="feat">
+      <h3><span class="icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v6c0 4.2-3 7.4-7 9-4-1.6-7-4.8-7-9V6z"/><path d="M9 12l2 2 4-4"/></svg></span>No ghost sessions</h3>
+      <p>Signals are caught and the child is stopped cleanly; a PID file cleans up anything left by a crash. Starting a second server in the same folder asks first.</p>
+    </div>
+    <div class="feat">
+      <h3><span class="icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg></span>Stays awake, stays small</h3>
+      <p>Optionally keeps the Mac from idle sleep while the server runs. The log drops the TUI's repeated redraws and never grows past 512&nbsp;KB.</p>
+    </div>
+    <div class="feat">
+      <h3><span class="icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12V5a1 1 0 0 1 1-1h7l8 8-8 8z"/><circle cx="8.5" cy="8.5" r="1.2"/></svg></span>Names that match</h3>
+      <p>Pick a fixed session name and it is turned into the same <code>a-z0-9-</code> slug Claude uses, so the name on your phone is the one you expect.</p>
+    </div>
+  </div>
+</section>
+
+<section id="how">
+  <h2>How it works</h2>
+  <p class="sub">It runs the same command you would type yourself, then reads what the server prints.</p>
+  <div class="steps">
+    <div class="step"><span>01</span><h3>Pick a folder</h3><p>Choose the project Claude should work in. Trust it once by running <code>claude</code> there in a terminal.</p></div>
+    <div class="step"><span>02</span><h3>Press Start</h3><p>The server connects; the panel shows the session name, uptime and how many of the 32 slots are in use.</p></div>
+    <div class="step"><span>03</span><h3>Open it anywhere</h3><p>Scan the QR code, or open claude.ai/code on any device. Your Mac does the work; your phone holds the remote.</p></div>
+  </div>
+<pre><span class="c"># what Claude RC starts</span>
+/bin/zsh -lc <b>"cd ~/projects/my-app &amp;&amp; exec claude remote-control --name my-macbook"</b>
+
+<span class="c"># what it reads back from the server</span>
+<span class="s">✔</span> Connected · Capacity: <b>2/32</b>
+<b>https://claude.ai/code?environment=env_01AbCd…</b></pre>
+</section>
+
+<section id="install">
+  <h2>Install</h2>
+  <p class="sub">You need macOS 13 or later and the <a href="https://docs.anthropic.com/en/docs/claude-code">Claude Code CLI</a>, signed in.</p>
+  <div class="options">
+    <div class="option">
+      <span class="tag">Recommended</span>
+      <h3>One command</h3>
+      <p>Downloads the latest release into /Applications and opens it. Run it again to update.</p>
+<pre>curl -fsSL https://raw.githubusercontent.com/erenbekman/claude-rc-menubar/main/install.sh | bash</pre>
+    </div>
+    <div class="option">
+      <h3>Download</h3>
+      <p>Get <a href="https://github.com/erenbekman/claude-rc-menubar/releases/latest">Claude-RC.zip</a> and drag the app to Applications. It is not notarized, so the first launch needs System Settings › Privacy &amp; Security › Open Anyway, or:</p>
+<pre>xattr -dr com.apple.quarantine "/Applications/Claude RC.app"</pre>
+    </div>
+    <div class="option">
+      <h3>Build from source</h3>
+      <p>Needs the Xcode Command Line Tools. Produces a universal app and installs it.</p>
+<pre>git clone https://github.com/erenbekman/claude-rc-menubar.git
+cd claude-rc-menubar
+./build.sh --install</pre>
+    </div>
+  </div>
+</section>
+
+<section id="credits">
+  <h2>Who made it</h2>
+  <p class="sub">Claude RC started as ocracy's project. This version adds the interface and the distribution around it.</p>
+  <div class="credits">
+    <div class="credit">
+      <div class="who"><b><a href="https://github.com/ocracy">ocracy</a></b><span>original author</span></div>
+      <p>Process management for <code>claude remote-control</code>, orphan protection, duplicate-server warnings, log trimming, launch at login and session naming.</p>
+    </div>
+    <div class="credit">
+      <div class="who"><b><a href="https://github.com/erenbekman">erenbekman</a></b><span>v1.1 and later</span></div>
+      <p>The SwiftUI panel and its design, the icon, QR code, notifications, universal builds, the installer and releases.</p>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <p>Claude RC is an independent open-source project. It is not affiliated with or endorsed by Anthropic. Claude is a trademark of Anthropic.</p>
+  <span><a href="https://github.com/erenbekman/claude-rc-menubar">Source</a> · <a href="https://github.com/erenbekman/claude-rc-menubar/releases">Releases</a> · <a href="https://github.com/erenbekman/claude-rc-menubar/issues">Issues</a> · <a href="https://erenbekman.com">erenbekman.com</a></span>
+</footer>
+
+</div>
+<script>
+document.querySelectorAll('.copy').forEach(function (button) {
+  button.addEventListener('click', function () {
+    var text = document.getElementById(button.dataset.copy).textContent;
+    navigator.clipboard.writeText(text).then(function () {
+      button.textContent = 'Copied';
+      setTimeout(function () { button.textContent = 'Copy'; }, 1500);
+    });
+  });
+});
+</script>
+</body>
+</html>
