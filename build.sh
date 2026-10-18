@@ -8,7 +8,7 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 APP_NAME="Claude RC"
 EXEC_NAME="ClaudeRC"
 BUNDLE_ID="com.safepluspay.claude-rc"
-VERSION="1.0"
+VERSION="1.1"
 BUILD="$HERE/build"
 BUNDLE="$BUILD/$APP_NAME.app"
 
@@ -50,19 +50,26 @@ cat > "$BUNDLE/Contents/Info.plist" <<PLIST
 </plist>
 PLIST
 
-echo "==> Derleniyor"
-swiftc -O \
-  -swift-version 5 \
-  -target arm64-apple-macos13.0 \
-  -framework Cocoa -framework IOKit -framework SwiftUI \
-  -o "$BUNDLE/Contents/MacOS/$EXEC_NAME" \
-  "$HERE/Sources/ClaudeRC.swift"
+echo "==> Derleniyor (arm64 + x86_64)"
+for ARCH in arm64 x86_64; do
+  swiftc -O \
+    -swift-version 5 \
+    -target "$ARCH-apple-macos13.0" \
+    -framework Cocoa -framework IOKit -framework SwiftUI \
+    -framework CoreImage -framework UserNotifications \
+    -o "$BUILD/$EXEC_NAME-$ARCH" \
+    "$HERE/Sources/ClaudeRC.swift"
+done
+lipo -create "$BUILD/$EXEC_NAME-arm64" "$BUILD/$EXEC_NAME-x86_64" \
+  -output "$BUNDLE/Contents/MacOS/$EXEC_NAME"
 
 echo "==> İmzalanıyor (ad-hoc)"
 codesign --force --deep --sign - "$BUNDLE" >/dev/null 2>&1 || codesign --force --sign - "$BUNDLE"
 
-rm -rf "$ICONSET" "$BUILD/icon_1024.png"
+rm -rf "$ICONSET" "$BUILD/icon_1024.png" "$BUILD/$EXEC_NAME-arm64" "$BUILD/$EXEC_NAME-x86_64"
+ditto -c -k --norsrc --noextattr --keepParent "$BUNDLE" "$BUILD/Claude-RC.zip"
 echo "==> Hazır: $BUNDLE"
+echo "==> Arşiv: $BUILD/Claude-RC.zip"
 
 if [[ "${1:-}" == "--install" ]]; then
   RUNNING="/Applications/$APP_NAME.app/Contents/MacOS/$EXEC_NAME"

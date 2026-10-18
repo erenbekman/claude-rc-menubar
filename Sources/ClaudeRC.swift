@@ -4,8 +4,10 @@
 //
 
 import Cocoa
+import CoreImage.CIFilterBuiltins
 import IOKit.pwr_mgt
 import SwiftUI
+import UserNotifications
 
 // MARK: - Ayar anahtarları
 
@@ -17,6 +19,8 @@ enum Keys {
     static let autoRestart   = "autoRestart"
     static let sessionName   = "sessionName"
     static let settingsExpanded = "settingsExpanded"
+    static let notifications = "notifications"
+    static let qrVisible     = "qrVisible"
 }
 
 let agentLabel = "com.safepluspay.claude-rc"
@@ -678,6 +682,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let rc = RCController.shared
     private var signalSources: [DispatchSourceSignal] = []
     private lazy var popover = makePopover()
+    private var lastState: RCState = .stopped
+    private var lastAttached = 0
+    private var recovering = false
+    private(set) var notificationsDenied = false
 
     func applicationDidFinishLaunching(_ notification: Notification) {
 
@@ -697,7 +705,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             Keys.autoRestart: true,
             Keys.workDir: NSHomeDirectory() + "/www",
             Keys.sessionName: slugify(Host.current().localizedName ?? "mac"),
+            Keys.notifications: true,
         ])
+
+        UNUserNotificationCenter.current().delegate = self
+        if UserDefaults.standard.bool(forKey: Keys.notifications) { requestNotificationPermission() }
 
         LoginItem.repairIfMoved()
         installSignalHandlers()
@@ -755,6 +767,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func updateUI() {
         rc.objectWillChange.send()
+        announceTransitions()
         guard let button = statusItem.button else { return }
         let cfg = NSImage.SymbolConfiguration(pointSize: 14, weight: .medium)
         button.image = NSImage(systemSymbolName: rc.state.symbol, accessibilityDescription: "Claude RC")?
@@ -790,8 +803,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc func togglePopover(_ sender: Any?) {
-        if popover.isShown { popover.performClose(sender); return }
-        guard let button = statusItem.button else { return }
+        if popover.isShown { popover.performClose(sender) } else { showPanel() }
+    }
+
+    func showPanel() {
+        guard let button = statusItem.button, !popover.isShown else { return }
         rc.objectWillChange.send()
         NSApp.activate(ignoringOtherApps: true)
         popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
@@ -800,6 +816,49 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func closePanel() {
         if popover.isShown { popover.performClose(nil) }
+    }
+
+    private func requestNotificationPermission() {
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { [weak self] granted, _ in
+            DispatchQueue.main.async {
+                self?.notificationsDenied = !granted
+                self?.updateUI()
+            }
+        }
+    }
+
+    private func announceTransitions() {
+        let state = rc.state
+        let attached = rc.attached
+        defer { lastState = state; lastAttached = attached }
+
+        switch (lastState, state) {
+        case (.connected, .starting):
+            recovering = true
+            post("Bağlantı koptu", "Claude RC yeniden bağlanmayı deniyor…")
+        case (let from, .failed) where from != .failed:
+            recovering = false
+            post("Claude RC durdu", rc.lastError ?? "Ayrıntılar logda.", sound: true)
+        case (_, .stopped):
+            recovering = false
+        case (.starting, .connected) where recovering:
+            recovering = false
+            post("Yeniden bağlandı", "Remote Control tekrar çalışıyor.")
+        case (.connected, .connected) where attached > lastAttached:
+            post("Yeni oturum bağlandı", "\(attached) / \(rc.capacity) oturum açık")
+        default:
+            break
+        }
+    }
+
+    private func post(_ title: String, _ body: String, sound: Bool = false) {
+        guard UserDefaults.standard.bool(forKey: Keys.notifications), !popover.isShown else { return }
+        let content = UNMutableNotificationContent()
+        content.title = title
+        content.body = body
+        if sound { content.sound = .default }
+        UNUserNotificationCenter.current().add(
+            UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil))
     }
 
     // MARK: Eylemler
@@ -879,6 +938,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func setFlag(_ key: String, _ enabled: Bool) {
         UserDefaults.standard.set(enabled, forKey: key)
         if key == Keys.keepAwake { rc.refreshSleepSetting() }
+        if key == Keys.notifications && enabled { requestNotificationPermission() }
         updateUI()
     }
 
@@ -891,7 +951,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         closePanel()
         NSApp.activate(ignoringOtherApps: true)
         let a = NSAlert()
-        a.messageText = "Claude RC"
+        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "?"
+        a.messageText = "Claude RC \(version)"
         let claudePath = rc.resolveClaude() ?? "bulunamadı"
         a.informativeText = """
         Menü çubuğundan `claude remote-control` sürecini yönetir. \
@@ -912,6 +973,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func copyToPasteboard(_ s: String) {
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(s, forType: .string)
+    }
+}
+
+extension AppDelegate: UNUserNotificationCenterDelegate {
+    func userNotificationCenter(_ center: UNUserNotificationCenter,
+                                willPresent notification: UNNotification,
+                                withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
+        completionHandler([.banner, .sound])
+    }
+
+    func userNotificationCenter(_ center: UNUserNotificationCenter,
+                                didReceive response: UNNotificationResponse,
+                                withCompletionHandler completionHandler: @escaping () -> Void) {
+        DispatchQueue.main.async { [weak self] in self?.showPanel() }
+        completionHandler()
     }
 }
 
@@ -958,6 +1034,7 @@ struct PanelView: View {
     let app: AppDelegate
     @ObservedObject var rc: RCController
     @AppStorage(Keys.settingsExpanded) private var settingsExpanded = false
+    @AppStorage(Keys.qrVisible) private var qrVisible = false
     @State private var nameDraft = UserDefaults.standard.string(forKey: Keys.sessionName) ?? ""
     @State private var copied: String?
 
@@ -1062,6 +1139,16 @@ struct PanelView: View {
                         .lineLimit(1)
                         .truncationMode(.middle)
                     Spacer(minLength: 0)
+                    Button {
+                        withAnimation(.easeOut(duration: Theme.fast)) { qrVisible.toggle() }
+                    } label: {
+                        if qrVisible {
+                            Image(systemName: "qrcode").foregroundStyle(Theme.accent)
+                        } else {
+                            Image(systemName: "qrcode")
+                        }
+                    }
+                    .help(qrVisible ? "QR kodu gizle" : "QR kodu göster")
                     Button { app.copyEnv(); flash("link") } label: {
                         Image(systemName: copied == "link" ? "checkmark" : "doc.on.doc")
                     }
@@ -1075,6 +1162,22 @@ struct PanelView: View {
                 .frame(height: 28)
                 .background(RoundedRectangle(cornerRadius: Theme.radius - 2, style: .continuous)
                     .fill(Color.primary.opacity(0.05)))
+
+                if qrVisible, let qr = QRCode.image(for: url) {
+                    VStack(spacing: Theme.space2) {
+                        Image(nsImage: qr)
+                            .interpolation(.none)
+                            .resizable()
+                            .frame(width: 148, height: 148)
+                            .padding(Theme.space2)
+                            .background(RoundedRectangle(cornerRadius: Theme.radius, style: .continuous).fill(.white))
+                        Text("Telefonun kamerasıyla okutun")
+                            .font(.system(size: 11))
+                            .foregroundStyle(.secondary)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.top, Theme.space1)
+                }
             }
         }
     }
@@ -1194,6 +1297,10 @@ struct PanelView: View {
                            isOn: flag(Keys.keepAwake))
                 settingRow("Çökerse yeniden dene", "Artan gecikmeyle 5 deneme",
                            isOn: flag(Keys.autoRestart))
+                settingRow("Bildirimler",
+                           app.notificationsDenied ? "İzin kapalı: Sistem Ayarları › Bildirimler"
+                                                   : "Kopma, hata ve yeni oturumda",
+                           isOn: flag(Keys.notifications))
             }
         }
     }
@@ -1268,6 +1375,20 @@ struct PanelView: View {
     private func flash(_ key: String) {
         copied = key
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.4) { if copied == key { copied = nil } }
+    }
+}
+
+enum QRCode {
+    private static let context = CIContext()
+
+    static func image(for text: String) -> NSImage? {
+        let filter = CIFilter.qrCodeGenerator()
+        filter.message = Data(text.utf8)
+        filter.correctionLevel = "M"
+        guard let output = filter.outputImage else { return nil }
+        let scaled = output.transformed(by: CGAffineTransform(scaleX: 10, y: 10))
+        guard let cg = context.createCGImage(scaled, from: scaled.extent) else { return nil }
+        return NSImage(cgImage: cg, size: scaled.extent.size)
     }
 }
 

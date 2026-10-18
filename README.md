@@ -8,12 +8,50 @@ başlatabilir.
 
 ## Kurulum
 
+Gereken: macOS 13+ (Apple Silicon veya Intel) ve kurulu, giriş yapılmış
+[`claude` CLI](https://docs.anthropic.com/en/docs/claude-code).
+
+### Tek komut
+
 ```bash
-./build.sh --install     # derler, /Applications'a kopyalar, başlatır
-./build.sh               # sadece build/Claude RC.app üretir
+curl -fsSL https://raw.githubusercontent.com/erenbekman/claude-rc-menubar/main/install.sh | bash
 ```
 
-Gereken: macOS 13+, Xcode Command Line Tools (`swiftc`) ve kurulu `claude` CLI.
+Son sürümü indirir, `/Applications`'a kurar (açıksa eskisini kapatıp
+değiştirir) ve başlatır. Güncellemek için aynı komutu tekrar çalıştırın.
+Başka bir klasöre kurmak için:
+`curl -fsSL … | INSTALL_DIR=~/Applications bash`.
+
+### Elle indirme
+
+[Releases](https://github.com/erenbekman/claude-rc-menubar/releases/latest)
+sayfasından `Claude-RC.zip`'i indirip açın, `Claude RC.app`'i Uygulamalar
+klasörüne sürükleyin.
+
+Uygulama Apple'a notarize ettirilmediği için tarayıcıyla indirilen kopyayı
+macOS ilk açılışta engeller. **Sistem Ayarları › Gizlilik ve Güvenlik ›
+Yine de Aç** deyin ya da karantina işaretini kaldırın:
+
+```bash
+xattr -dr com.apple.quarantine "/Applications/Claude RC.app"
+```
+
+### Kaynaktan derleme
+
+```bash
+./build.sh --install     # derler, /Applications'a kopyalar, başlatır
+./build.sh               # sadece build/Claude RC.app ve build/Claude-RC.zip üretir
+```
+
+Ek olarak Xcode Command Line Tools (`swiftc`) gerekir. Çıktı universal'dır
+(arm64 + x86_64).
+
+### İlk açılış
+
+- Menü çubuğunda anten simgesi çıkar; tıklayıp **Çalışma dizini** seçin.
+- O dizinde daha önce `claude` çalıştırmadıysanız bir kez terminalden
+  çalıştırıp workspace güven onayını verin.
+- Bildirim izni sorulur; kopma ve hata uyarıları için izin verin.
 
 ## Menü çubuğu
 
@@ -33,6 +71,9 @@ Simgeye tıklayınca panel açılır; dışına tıklamak veya `Esc` kapatır.
   açık kalma süresi, `N / 32` oturum doluluk çubuğu ve
   `claude.ai/code?environment=…` linki (kopyala / tarayıcıda aç). Kapalı,
   bağlanıyor ve hata durumlarında ne yapılacağını söyleyen kısa açıklama.
+- **QR kod** — link satırındaki QR düğmesi, ortam linkini QR olarak gösterir;
+  telefon kamerasıyla okutup doğrudan bağlanırsınız. Açık/kapalı tercihi
+  hatırlanır.
 - **Uyarı şeridi** — yeniden deneme veya aynı dizinde başka sunucu gibi
   uyarılar.
 - **Başlat / Durdur** (⌘S), **Yeniden başlat** (⌘R)
@@ -49,6 +90,10 @@ Simgeye tıklayınca panel açılır; dışına tıklamak veya `Esc` kapatır.
   - **Açılınca RC'yi başlat** — açılıştan 3 sn sonra (ağ hazır olsun diye).
   - **Mac boşta uyumasın** — IOKit güç iddiası; sadece RC çalışırken tutulur.
   - **Çökerse yeniden dene** — beklenmedik çıkışta artan gecikmeyle 5 deneme.
+  - **Bildirimler** — bağlantı koptuğunda, yeniden bağlandığında, RC
+    durduğunda (sesli) ve telefondan yeni oturum bağlandığında macOS
+    bildirimi. Panel açıkken bildirim gönderilmez; bildirime tıklamak paneli
+    açar. Sistem izni kapalıysa ayar satırı bunu söyler.
 - **Log** (⌘L) — `~/Library/Logs/ClaudeRC.log`, **Hakkında**, **Çıkış** (⌘Q)
 
 Panel SwiftUI ile, `NSPopover` içinde çizilir; açık/koyu temaya uyar. Renk ve
@@ -127,6 +172,7 @@ Yazılan her satır `yyyy-MM-dd HH:mm:ss` damgası alır.
 ```
 Sources/ClaudeRC.swift   uygulama (süreç yönetimi + SwiftUI panel)
 Sources/makeicon.swift   ikon üreteci
-build.sh                 derleme + kurulum
+build.sh                 derleme (universal) + zip + yerel kurulum
+install.sh               son release'i indirip kuran tek komutluk betik
 docs/panel.png           panel ekran görüntüsü
 ```
