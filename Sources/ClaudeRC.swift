@@ -84,15 +84,6 @@ func firstMatch(_ pattern: String, in text: String, group: Int = 1) -> String? {
 enum RCState {
     case stopped, starting, connected, failed
 
-    var symbol: String {
-        switch self {
-        case .stopped:   return "antenna.radiowaves.left.and.right.slash"
-        case .starting:  return "antenna.radiowaves.left.and.right"
-        case .connected: return "antenna.radiowaves.left.and.right"
-        case .failed:    return "exclamationmark.triangle"
-        }
-    }
-
     var label: String {
         switch self {
         case .stopped:   return "Kapalı"
@@ -769,9 +760,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         rc.objectWillChange.send()
         announceTransitions()
         guard let button = statusItem.button else { return }
-        let cfg = NSImage.SymbolConfiguration(pointSize: 14, weight: .medium)
-        button.image = NSImage(systemSymbolName: rc.state.symbol, accessibilityDescription: "Claude RC")?
-            .withSymbolConfiguration(cfg)
+        if rc.state == .failed {
+            let cfg = NSImage.SymbolConfiguration(pointSize: 14, weight: .medium)
+            button.image = NSImage(systemSymbolName: "exclamationmark.triangle", accessibilityDescription: "Claude RC")?
+                .withSymbolConfiguration(cfg)
+        } else {
+            button.image = StatusIcon.image(waves: rc.state != .stopped)
+        }
         button.image?.isTemplate = true
 
         switch rc.state {
@@ -963,6 +958,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         claude: \(claudePath)
         Log: \(rc.logURL.path)
         Giriş öğesi: \(LoginItem.isEnabled ? LoginItem.plistURL.path : "kapalı")
+
+        Orijinal: github.com/ocracy
+        Panel, ikon ve ekler: github.com/erenbekman
         """
         a.addButton(withTitle: "Tamam")
         a.runModal()
@@ -992,12 +990,13 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
 }
 
 enum Theme {
-    static let accent     = Color(hex: 0xD97757)
-    static let accentDeep = Color(hex: 0xAD715D)
-    static let success    = Color(hex: 0x10B981)
-    static let warning    = Color(hex: 0xF59E0B)
-    static let danger     = Color(hex: 0xEF4444)
-    static let idle       = Color(hex: 0x9CA3AF)
+    static let accent   = Color(light: 0x233D4D, dark: 0xFE7F2D)
+    static let onAccent = Color(light: 0xF2F4F6, dark: 0x000000)
+    static let signal   = Color(hex: 0xFE7F2D)
+    static let success  = Color(light: 0x358D61, dark: 0x5CE09E)
+    static let warning  = Color(light: 0x8D6D35, dark: 0xE0B05C)
+    static let danger   = Color(light: 0x8D4135, dark: 0xE06E5C)
+    static let idle     = Color(light: 0x6A6B6C, dark: 0x7C7C7C)
 
     static let space1: CGFloat = 4
     static let space2: CGFloat = 8
@@ -1011,11 +1010,53 @@ enum Theme {
     static let panelWidth: CGFloat = 320
 }
 
+extension NSColor {
+    convenience init(hex: UInt32) {
+        self.init(srgbRed: CGFloat((hex >> 16) & 0xFF) / 255,
+                  green: CGFloat((hex >> 8) & 0xFF) / 255,
+                  blue: CGFloat(hex & 0xFF) / 255,
+                  alpha: 1)
+    }
+}
+
 extension Color {
     init(hex: UInt32) {
-        self.init(red: Double((hex >> 16) & 0xFF) / 255,
-                  green: Double((hex >> 8) & 0xFF) / 255,
-                  blue: Double(hex & 0xFF) / 255)
+        self.init(nsColor: NSColor(hex: hex))
+    }
+
+    init(light: UInt32, dark: UInt32) {
+        self.init(nsColor: NSColor(name: nil) { appearance in
+            NSColor(hex: appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua ? dark : light)
+        })
+    }
+}
+
+enum StatusIcon {
+    static func image(waves: Bool) -> NSImage {
+        let image = NSImage(size: NSSize(width: 18, height: 16), flipped: false) { rect in
+            let tip = NSPoint(x: 6.5, y: rect.midY)
+            let chevron = NSBezierPath()
+            chevron.move(to: NSPoint(x: tip.x - 4.5, y: tip.y + 4.5))
+            chevron.line(to: tip)
+            chevron.line(to: NSPoint(x: tip.x - 4.5, y: tip.y - 4.5))
+            chevron.lineWidth = 2.2
+            chevron.lineCapStyle = .round
+            chevron.lineJoinStyle = .round
+            NSColor.black.setStroke()
+            chevron.stroke()
+            guard waves else { return true }
+            for radius: CGFloat in [5, 9] {
+                let arc = NSBezierPath()
+                arc.appendArc(withCenter: tip, radius: radius, startAngle: -42, endAngle: 42)
+                arc.lineWidth = 1.9
+                arc.lineCapStyle = .round
+                arc.stroke()
+            }
+            return true
+        }
+        image.isTemplate = true
+        image.accessibilityDescription = "Claude RC"
+        return image
     }
 }
 
@@ -1057,15 +1098,10 @@ struct PanelView: View {
 
     private var header: some View {
         HStack(spacing: Theme.space3) {
-            ZStack {
-                RoundedRectangle(cornerRadius: Theme.radius, style: .continuous)
-                    .fill(LinearGradient(colors: [Theme.accent, Theme.accentDeep],
-                                         startPoint: .topLeading, endPoint: .bottomTrailing))
-                Image(systemName: "antenna.radiowaves.left.and.right")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(.white)
-            }
-            .frame(width: 32, height: 32)
+            Image(nsImage: NSApp.applicationIconImage)
+                .resizable()
+                .frame(width: 38, height: 38)
+                .padding(-3)
             VStack(alignment: .leading, spacing: 1) {
                 Text("Claude RC").font(.system(size: 14, weight: .semibold))
                 Text("Remote Control").font(.system(size: 11)).foregroundStyle(.secondary)
@@ -1143,7 +1179,7 @@ struct PanelView: View {
                         withAnimation(.easeOut(duration: Theme.fast)) { qrVisible.toggle() }
                     } label: {
                         if qrVisible {
-                            Image(systemName: "qrcode").foregroundStyle(Theme.accent)
+                            Image(systemName: "qrcode").foregroundStyle(Theme.signal)
                         } else {
                             Image(systemName: "qrcode")
                         }
@@ -1424,7 +1460,7 @@ struct CapacityBar: View {
         GeometryReader { geo in
             ZStack(alignment: .leading) {
                 Capsule().fill(Color.primary.opacity(0.08))
-                Capsule().fill(Theme.accent)
+                Capsule().fill(Theme.signal)
                     .frame(width: geo.size.width * min(1, CGFloat(value) / CGFloat(max(total, 1))))
             }
         }
@@ -1452,7 +1488,7 @@ struct SoftButtonStyle: ButtonStyle {
         var body: some View {
             configuration.label
                 .font(.system(size: 12.5, weight: .semibold))
-                .foregroundStyle(prominent ? Color.white : tint)
+                .foregroundStyle(prominent ? Theme.onAccent : tint)
                 .padding(.horizontal, Theme.space3)
                 .frame(height: height)
                 .background(RoundedRectangle(cornerRadius: Theme.radius, style: .continuous)

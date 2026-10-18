@@ -1,8 +1,17 @@
+<p align="center"><img src="docs/icon.png" width="128" alt="Claude RC ikonu"></p>
+
 # Claude RC
 
 macOS menü çubuğu uygulaması. `claude remote-control` sürecini saatin yanından
 başlatır/durdurur, durumunu gösterir ve Mac her açıldığında kendini geri
 başlatabilir.
+
+> **Orijinal proje [ocracy](https://github.com/ocracy)'ye aittir.** Süreç
+> yönetimi, öksüz süreç koruması, log kırpma, girişte otomatik başlatma ve
+> oturum adı mantığı onun çalışmasıdır. Bu repoda
+> [erenbekman](https://github.com/erenbekman) tarafından eklenenler: SwiftUI
+> panel arayüzü ve UI tasarımı, özel ikon, QR kod, bildirimler, universal
+> build ve tek komutluk kurulum. Ayrıntılar: [Emeği geçenler](#emeği-geçenler).
 
 ![Claude RC paneli — açık ve koyu tema, dört durum](docs/panel.png)
 
@@ -96,10 +105,20 @@ Simgeye tıklayınca panel açılır; dışına tıklamak veya `Esc` kapatır.
     açar. Sistem izni kapalıysa ayar satırı bunu söyler.
 - **Log** (⌘L) — `~/Library/Logs/ClaudeRC.log`, **Hakkında**, **Çıkış** (⌘Q)
 
-Panel SwiftUI ile, `NSPopover` içinde çizilir; açık/koyu temaya uyar. Renk ve
-aralıklar küçük bir token setinden gelir: vurgu Claude turuncusu `#D97757`,
-durumlar `#10B981` / `#F59E0B` / `#EF4444`, 4-8-12-16 pt boşluk ve 8/12 pt
-köşe yarıçapı.
+Panel SwiftUI ile, `NSPopover` içinde çizilir; açık/koyu temaya uyar.
+
+## Tasarım
+
+- **İkon** — terminal prompt'u (`>`) ve ondan yayılan sinyal dalgaları:
+  "terminal telefona yayın yapıyor". Uygulama ikonu `Sources/makeicon.swift`
+  ile vektörel çizilir; menü çubuğundaki tek renkli sürüm aynı işaretin
+  16 pt'ye göre sadeleştirilmiş hâlidir (kapalıyken yalnızca `>`).
+- **Renkler** — Color Hunt paleti
+  [`#000000 #233D4D #FE7F2D #EAECF0`](https://colorhunt.co/palette/000000233d4dfe7f2deaecf0).
+  Vurgu açık temada lacivert `#233D4D`, koyu temada turuncu `#FE7F2D`;
+  sinyal öğeleri (doluluk çubuğu, QR düğmesi) her iki temada turuncu. Durum
+  renkleri paletten türetilip kontrast için ayarlandı (metin ≥ 4.5:1).
+- **Ölçüler** — 4-8-12-16 pt boşluk, 8/12 pt köşe yarıçapı, 320 pt panel.
 
 ## Nasıl çalışıyor
 
@@ -167,12 +186,25 @@ Yazılan her satır `yyyy-MM-dd HH:mm:ss` damgası alır.
 - Bilgisayar tamamen kapalıyken telefondan iş yaptırmak isterseniz bu yetmez;
   o senaryo için cloud session (`claude --cloud`) gerekir.
 
+## Emeği geçenler
+
+- **[ocracy](https://github.com/ocracy)** — Claude RC'nin orijinal yazarı:
+  `claude remote-control` süreç yönetimi, öksüz süreç koruması (sinyal
+  yakalama + PID dosyası), aynı dizinde çift sunucu uyarısı, log tekrar
+  eleme ve kırpma, LaunchAgent ile girişte başlatma, oturum adı slug'ı ve
+  ilk menü çubuğu arayüzü.
+- **[erenbekman](https://github.com/erenbekman)** — v1.1 ve sonrası:
+  SwiftUI panel arayüzü ve UI tasarımı, Color Hunt paletiyle renk sistemi,
+  özel uygulama ve menü çubuğu ikonu, QR kod, macOS bildirimleri, universal
+  (arm64 + x86_64) build, `install.sh` ve GitHub Releases dağıtımı.
+
 ## Dosyalar
 
 ```
 Sources/ClaudeRC.swift   uygulama (süreç yönetimi + SwiftUI panel)
-Sources/makeicon.swift   ikon üreteci
+Sources/makeicon.swift   uygulama ikonu üreteci
 build.sh                 derleme (universal) + zip + yerel kurulum
 install.sh               son release'i indirip kuran tek komutluk betik
 docs/panel.png           panel ekran görüntüsü
+docs/icon.png            uygulama ikonu
 ```

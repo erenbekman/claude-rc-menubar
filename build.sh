@@ -8,7 +8,7 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 APP_NAME="Claude RC"
 EXEC_NAME="ClaudeRC"
 BUNDLE_ID="com.safepluspay.claude-rc"
-VERSION="1.1"
+VERSION="1.2"
 BUILD="$HERE/build"
 BUNDLE="$BUILD/$APP_NAME.app"
 
