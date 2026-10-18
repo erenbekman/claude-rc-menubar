@@ -109,10 +109,12 @@ Panel SwiftUI ile, `NSPopover` içinde çizilir; açık/koyu temaya uyar.
 
 ## Tasarım
 
-- **İkon** — terminal prompt'u (`>`) ve ondan yayılan sinyal dalgaları:
-  "terminal telefona yayın yapıyor". Uygulama ikonu `Sources/makeicon.swift`
-  ile vektörel çizilir; menü çubuğundaki tek renkli sürüm aynı işaretin
-  16 pt'ye göre sadeleştirilmiş hâlidir (kapalıyken yalnızca `>`).
+- **İkon** — ince çizgili, minimal bir işaret: sağı açık bir halka (Claude'un
+  "C"si), içinde terminal prompt'u `›` ve açıklıktan dışarı çıkan tek bir
+  turuncu sinyal yayı. Uygulama ikonu `Sources/makeicon.swift` ile vektörel
+  çizilir (açık zemin, lacivert çizgi, turuncu sinyal). Menü çubuğunda aynı
+  işaretin 1.2 pt çizgili tek renkli sürümü durur; kapalıyken sinyal yayı
+  görünmez.
 - **Renkler** — Color Hunt paleti
   [`#000000 #233D4D #FE7F2D #EAECF0`](https://colorhunt.co/palette/000000233d4dfe7f2deaecf0).
   Vurgu açık temada lacivert `#233D4D`, koyu temada turuncu `#FE7F2D`;

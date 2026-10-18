@@ -12,9 +12,11 @@ func color(_ hex: UInt32, _ alpha: CGFloat = 1) -> NSColor {
             alpha: alpha)
 }
 
-let navyLight = color(0x2E4D60)
-let navyDeep  = color(0x0F1C24)
-let paper     = color(0xEAECF0)
+let paperTop    = color(0xFFFFFF)
+let paperBottom = color(0xE4E7EC)
+let ink         = color(0x233D4D)
+let signal      = color(0xFE7F2D)
+let stroke: CGFloat = 28
 
 guard let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: Int(S), pixelsHigh: Int(S),
                                  bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
@@ -30,59 +32,45 @@ let squircle = NSBezierPath(roundedRect: body, xRadius: body.width * 0.235, yRad
 
 NSGraphicsContext.saveGraphicsState()
 let dropShadow = NSShadow()
-dropShadow.shadowColor = NSColor(white: 0, alpha: 0.35)
-dropShadow.shadowBlurRadius = 28
-dropShadow.shadowOffset = NSSize(width: 0, height: -12)
+dropShadow.shadowColor = NSColor(white: 0, alpha: 0.28)
+dropShadow.shadowBlurRadius = 26
+dropShadow.shadowOffset = NSSize(width: 0, height: -10)
 dropShadow.set()
-navyDeep.setFill()
+paperBottom.setFill()
 squircle.fill()
 NSGraphicsContext.restoreGraphicsState()
 
-NSGradient(starting: navyLight, ending: navyDeep)?.draw(in: squircle, angle: -90)
-
-let tip = NSPoint(x: 420, y: body.midY)
-
-NSGraphicsContext.saveGraphicsState()
-squircle.addClip()
-NSGradient(colors: [color(0xFE7F2D, 0.30), color(0xFE7F2D, 0)])?
-    .draw(fromCenter: NSPoint(x: tip.x + 150, y: tip.y), radius: 0,
-          toCenter: NSPoint(x: tip.x + 150, y: tip.y), radius: 420, options: [])
-NSGradient(colors: [NSColor(white: 1, alpha: 0.10), NSColor(white: 1, alpha: 0)])?
-    .draw(in: NSRect(x: body.minX, y: body.midY, width: body.width, height: body.height / 2), angle: -90)
-NSGraphicsContext.restoreGraphicsState()
-
-NSColor(white: 1, alpha: 0.14).setStroke()
-squircle.lineWidth = 3
+NSGradient(starting: paperTop, ending: paperBottom)?.draw(in: squircle, angle: -90)
+NSColor(white: 0, alpha: 0.08).setStroke()
+squircle.lineWidth = 2
 squircle.stroke()
 
-let glyphShadow = NSShadow()
-glyphShadow.shadowColor = NSColor(white: 0, alpha: 0.35)
-glyphShadow.shadowBlurRadius = 16
-glyphShadow.shadowOffset = NSSize(width: 0, height: -6)
+let center = NSPoint(x: body.midX - 34, y: body.midY)
+let radius: CGFloat = 250
 
-NSGraphicsContext.saveGraphicsState()
-glyphShadow.set()
+let ring = NSBezierPath()
+ring.appendArc(withCenter: center, radius: radius, startAngle: 42, endAngle: 318)
+ring.lineWidth = stroke
+ring.lineCapStyle = .round
+ink.setStroke()
+ring.stroke()
 
-let arm: CGFloat = 150
+let tip = NSPoint(x: center.x + 62, y: center.y)
 let chevron = NSBezierPath()
-chevron.move(to: NSPoint(x: tip.x - arm, y: tip.y + arm))
+chevron.move(to: NSPoint(x: tip.x - 92, y: tip.y + 92))
 chevron.line(to: tip)
-chevron.line(to: NSPoint(x: tip.x - arm, y: tip.y - arm))
-chevron.lineWidth = 84
+chevron.line(to: NSPoint(x: tip.x - 92, y: tip.y - 92))
+chevron.lineWidth = stroke
 chevron.lineCapStyle = .round
 chevron.lineJoinStyle = .round
-paper.setStroke()
 chevron.stroke()
 
-for (radius, hex) in [(CGFloat(150), UInt32(0xFE7F2D)), (245, 0xEC6A1E), (340, 0xD45A17)] {
-    let arc = NSBezierPath()
-    arc.appendArc(withCenter: tip, radius: radius, startAngle: -42, endAngle: 42)
-    arc.lineWidth = 58
-    arc.lineCapStyle = .round
-    color(hex).setStroke()
-    arc.stroke()
-}
-NSGraphicsContext.restoreGraphicsState()
+let pulse = NSBezierPath()
+pulse.appendArc(withCenter: center, radius: radius + 92, startAngle: -24, endAngle: 24)
+pulse.lineWidth = stroke
+pulse.lineCapStyle = .round
+signal.setStroke()
+pulse.stroke()
 
 NSGraphicsContext.restoreGraphicsState()
 

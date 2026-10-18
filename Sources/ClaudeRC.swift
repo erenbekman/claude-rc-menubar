@@ -765,7 +765,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             button.image = NSImage(systemSymbolName: "exclamationmark.triangle", accessibilityDescription: "Claude RC")?
                 .withSymbolConfiguration(cfg)
         } else {
-            button.image = StatusIcon.image(waves: rc.state != .stopped)
+            button.image = StatusIcon.image(pulse: rc.state != .stopped)
         }
         button.image?.isTemplate = true
 
@@ -806,7 +806,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         rc.objectWillChange.send()
         NSApp.activate(ignoringOtherApps: true)
         popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
-        popover.contentViewController?.view.window?.makeKey()
+        guard let window = popover.contentViewController?.view.window else { return }
+        window.makeKey()
+        window.makeFirstResponder(nil)
+        DispatchQueue.main.async { window.makeFirstResponder(nil) }
     }
 
     private func closePanel() {
@@ -1032,26 +1035,34 @@ extension Color {
 }
 
 enum StatusIcon {
-    static func image(waves: Bool) -> NSImage {
+    static func image(pulse: Bool) -> NSImage {
         let image = NSImage(size: NSSize(width: 18, height: 16), flipped: false) { rect in
-            let tip = NSPoint(x: 6.5, y: rect.midY)
+            let center = NSPoint(x: 7.4, y: rect.midY)
+            let radius: CGFloat = 6.0
+            NSColor.black.setStroke()
+
+            let ring = NSBezierPath()
+            ring.appendArc(withCenter: center, radius: radius, startAngle: 42, endAngle: 318)
+            ring.lineWidth = 1.2
+            ring.lineCapStyle = .round
+            ring.stroke()
+
+            let tip = NSPoint(x: center.x + 1.4, y: center.y)
             let chevron = NSBezierPath()
-            chevron.move(to: NSPoint(x: tip.x - 4.5, y: tip.y + 4.5))
+            chevron.move(to: NSPoint(x: tip.x - 2.2, y: tip.y + 2.2))
             chevron.line(to: tip)
-            chevron.line(to: NSPoint(x: tip.x - 4.5, y: tip.y - 4.5))
-            chevron.lineWidth = 2.2
+            chevron.line(to: NSPoint(x: tip.x - 2.2, y: tip.y - 2.2))
+            chevron.lineWidth = 1.2
             chevron.lineCapStyle = .round
             chevron.lineJoinStyle = .round
-            NSColor.black.setStroke()
             chevron.stroke()
-            guard waves else { return true }
-            for radius: CGFloat in [5, 9] {
-                let arc = NSBezierPath()
-                arc.appendArc(withCenter: tip, radius: radius, startAngle: -42, endAngle: 42)
-                arc.lineWidth = 1.9
-                arc.lineCapStyle = .round
-                arc.stroke()
-            }
+
+            guard pulse else { return true }
+            let arc = NSBezierPath()
+            arc.appendArc(withCenter: center, radius: radius + 2.4, startAngle: -24, endAngle: 24)
+            arc.lineWidth = 1.2
+            arc.lineCapStyle = .round
+            arc.stroke()
             return true
         }
         image.isTemplate = true
@@ -1098,10 +1109,6 @@ struct PanelView: View {
 
     private var header: some View {
         HStack(spacing: Theme.space3) {
-            Image(nsImage: NSApp.applicationIconImage)
-                .resizable()
-                .frame(width: 38, height: 38)
-                .padding(-3)
             VStack(alignment: .leading, spacing: 1) {
                 Text("Claude RC").font(.system(size: 14, weight: .semibold))
                 Text("Remote Control").font(.system(size: 11)).foregroundStyle(.secondary)
