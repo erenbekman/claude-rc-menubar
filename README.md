@@ -1,214 +1,224 @@
-<p align="center"><img src="docs/icon.png" width="128" alt="Claude RC ikonu"></p>
+<p align="center"><img src="docs/icon.png" width="128" alt="Claude RC icon"></p>
 
 # Claude RC
 
-macOS menü çubuğu uygulaması. `claude remote-control` sürecini saatin yanından
-başlatır/durdurur, durumunu gösterir ve Mac her açıldığında kendini geri
-başlatabilir.
+A macOS menu bar app for `claude remote-control`. It starts and stops the
+server from next to the clock, shows its status, and can bring itself back
+every time the Mac starts.
 
-**Web sitesi:** https://erenbekman.github.io/claude-rc-menubar/
+**Website:** https://erenbekman.github.io/claude-rc-menubar/
 
-> **Orijinal proje [ocracy](https://github.com/ocracy)'ye aittir.** Süreç
-> yönetimi, öksüz süreç koruması, log kırpma, girişte otomatik başlatma ve
-> oturum adı mantığı onun çalışmasıdır. Bu repoda
-> [erenbekman](https://github.com/erenbekman) tarafından eklenenler: SwiftUI
-> panel arayüzü ve UI tasarımı, özel ikon, QR kod, bildirimler, universal
-> build ve tek komutluk kurulum. Ayrıntılar: [Emeği geçenler](#emeği-geçenler).
+> **The original project belongs to [ocracy](https://github.com/ocracy).**
+> Process management, orphan protection, log trimming, launch at login and
+> session naming are ocracy's work. Added in this repo by
+> [erenbekman](https://github.com/erenbekman): the SwiftUI panel and UI
+> design, the custom icon, QR code, notifications, universal builds and the
+> one-line installer. Details: [Credits](#credits).
 
-![Claude RC paneli — açık ve koyu tema, dört durum](docs/panel.png)
+![The Claude RC panel in light and dark mode, in all four states](docs/panel.png)
 
-## Kurulum
+## Install
 
-Gereken: macOS 13+ (Apple Silicon veya Intel) ve kurulu, giriş yapılmış
-[`claude` CLI](https://docs.anthropic.com/en/docs/claude-code).
+Requirements: macOS 13+ (Apple silicon or Intel) and the
+[`claude` CLI](https://docs.anthropic.com/en/docs/claude-code), installed and
+signed in.
 
-### Tek komut
+### One command
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/erenbekman/claude-rc-menubar/main/install.sh | bash
 ```
 
-Son sürümü indirir, `/Applications`'a kurar (açıksa eskisini kapatıp
-değiştirir) ve başlatır. Güncellemek için aynı komutu tekrar çalıştırın.
-Başka bir klasöre kurmak için:
+Downloads the latest release, installs it into `/Applications` (quitting and
+replacing a running copy) and opens it. Run the same command again to update.
+To install somewhere else:
 `curl -fsSL … | INSTALL_DIR=~/Applications bash`.
 
-### Elle indirme
+### Manual download
 
-[Releases](https://github.com/erenbekman/claude-rc-menubar/releases/latest)
-sayfasından `Claude-RC.zip`'i indirip açın, `Claude RC.app`'i Uygulamalar
-klasörüne sürükleyin.
+Download `Claude-RC.zip` from
+[Releases](https://github.com/erenbekman/claude-rc-menubar/releases/latest),
+unzip it and drag `Claude RC.app` into Applications.
 
-Uygulama Apple'a notarize ettirilmediği için tarayıcıyla indirilen kopyayı
-macOS ilk açılışta engeller. **Sistem Ayarları › Gizlilik ve Güvenlik ›
-Yine de Aç** deyin ya da karantina işaretini kaldırın:
+The app is not notarized by Apple, so macOS blocks a copy downloaded with a
+browser on first launch. Choose **System Settings › Privacy & Security ›
+Open Anyway**, or remove the quarantine flag:
 
 ```bash
 xattr -dr com.apple.quarantine "/Applications/Claude RC.app"
 ```
 
-### Kaynaktan derleme
+### Build from source
 
 ```bash
-./build.sh --install     # derler, /Applications'a kopyalar, başlatır
-./build.sh               # sadece build/Claude RC.app ve build/Claude-RC.zip üretir
+./build.sh --install     # build, copy to /Applications, open
+./build.sh               # only build build/Claude RC.app and build/Claude-RC.zip
 ```
 
-Ek olarak Xcode Command Line Tools (`swiftc`) gerekir. Çıktı universal'dır
+Also needs the Xcode Command Line Tools (`swiftc`). The output is universal
 (arm64 + x86_64).
 
-### İlk açılış
+### First launch
 
-- Menü çubuğunda anten simgesi çıkar; tıklayıp **Çalışma dizini** seçin.
-- O dizinde daha önce `claude` çalıştırmadıysanız bir kez terminalden
-  çalıştırıp workspace güven onayını verin.
-- Bildirim izni sorulur; kopma ve hata uyarıları için izin verin.
+- The icon appears in the menu bar; click it and pick a **Working folder**.
+- If you have never run `claude` in that folder, run it once in a terminal
+  and accept the workspace trust prompt.
+- macOS asks for notification permission; allow it to get drop and error
+  alerts.
 
-## Menü çubuğu
+## Menu bar
 
-| Simge | Anlamı |
+| Icon | Meaning |
 |---|---|
-| Anten (soluk) | Kapalı |
-| Anten + `…` | Bağlanıyor |
-| Anten (net) + sayı | Bağlı — sayı, aktif oturum adedi |
-| Ünlem üçgeni | Hata (panelde nedeni yazar) |
+| Open ring with `›` (dim) | Off |
+| Ring with signal arc (dim) + `…` | Connecting |
+| Ring with signal arc + number | Connected — the number is the count of active sessions |
+| Warning triangle | Error (the panel shows why) |
 
-Simgeye tıklayınca panel açılır; dışına tıklamak veya `Esc` kapatır.
+Click the icon to open the panel; click outside it or press `Esc` to close.
 
 ## Panel
 
-- **Durum rozeti** — Kapalı / Bağlanıyor (nabız atan nokta) / Bağlı / Hata.
-- **Durum kartı** — bağlıyken sunucunun bildirdiği oturum adı (kopyala),
-  açık kalma süresi, `N / 32` oturum doluluk çubuğu ve
-  `claude.ai/code?environment=…` linki (kopyala / tarayıcıda aç). Kapalı,
-  bağlanıyor ve hata durumlarında ne yapılacağını söyleyen kısa açıklama.
-- **QR kod** — link satırındaki QR düğmesi, ortam linkini QR olarak gösterir;
-  telefon kamerasıyla okutup doğrudan bağlanırsınız. Açık/kapalı tercihi
-  hatırlanır.
-- **Uyarı şeridi** — yeniden deneme veya aynı dizinde başka sunucu gibi
-  uyarılar.
-- **Başlat / Durdur** (⌘S), **Yeniden başlat** (⌘R)
-- **Çalışma dizini** — son kullanılan 8 klasör + `Klasör Seç…`.
-  RC açıkken dizin değişirse süreç otomatik yeniden başlar.
-- **Oturum adı** — telefonda/claude.ai'de görünen sabit ad; panelde yerinde
-  düzenlenir, Enter ya da **Kaydet** ile kaydedilir ve yazarken kaydedilecek
-  slug gösterilir. Varsayılan: makine adının slug'ı. Boş bırakılırsa `--name`
-  hiç geçilmez ve claude terminaldeki gibi rastgele ad üretir.
-- **Ayarlar** (açılır bölüm, açık/kapalı durumu hatırlanır):
-  - **Girişte otomatik başlat** — `~/Library/LaunchAgents/com.safepluspay.claude-rc.plist`
-    yazıp `launchctl bootstrap gui/$UID` ile kaydeder. Mac her açılışta
-    uygulamayı başlatır (uygulama da ayarlıysa RC'yi başlatır).
-  - **Açılınca RC'yi başlat** — açılıştan 3 sn sonra (ağ hazır olsun diye).
-  - **Mac boşta uyumasın** — IOKit güç iddiası; sadece RC çalışırken tutulur.
-  - **Çökerse yeniden dene** — beklenmedik çıkışta artan gecikmeyle 5 deneme.
-  - **Bildirimler** — bağlantı koptuğunda, yeniden bağlandığında, RC
-    durduğunda (sesli) ve telefondan yeni oturum bağlandığında macOS
-    bildirimi. Panel açıkken bildirim gönderilmez; bildirime tıklamak paneli
-    açar. Sistem izni kapalıysa ayar satırı bunu söyler.
-- **Log** (⌘L) — `~/Library/Logs/ClaudeRC.log`, **Hakkında**, **Çıkış** (⌘Q)
+- **Status pill** — Off / Connecting (pulsing dot) / Connected / Error.
+- **Status card** — while connected: the session name reported by the server
+  (copy), uptime, an `N / 32` capacity bar and the
+  `claude.ai/code?environment=…` link (copy / open in browser). When off,
+  connecting or failed: a short note on what to do next.
+- **QR code** — the QR button in the link row shows the environment link as a
+  QR code; scan it with your phone's camera to connect. The choice is
+  remembered.
+- **Warning strip** — warnings such as a retry in progress or another server
+  in the same folder.
+- **Start / Stop** (⌘S), **Restart** (⌘R)
+- **Working folder** — the 8 most recent folders + `Choose Folder…`. If the
+  folder changes while RC is running, the process restarts automatically.
+- **Session name** — the fixed name shown on your phone and claude.ai; edited
+  in place, saved with Enter or **Save**, with a live preview of the slug that
+  will be saved. Default: a slug of the computer name. Leave it empty and
+  `--name` is not passed at all, so claude picks a random name just like in
+  the terminal.
+- **Settings** (collapsible, open/closed state is remembered):
+  - **Launch at login** — writes `~/Library/LaunchAgents/com.safepluspay.claude-rc.plist`
+    and registers it with `launchctl bootstrap gui/$UID`. The app starts with
+    every login (and starts RC if that is enabled too).
+  - **Start RC on launch** — 3 seconds after launch, so the network is ready.
+  - **Prevent idle sleep** — an IOKit power assertion, held only while RC runs.
+  - **Retry after crashes** — up to 5 attempts with growing delays after an
+    unexpected exit.
+  - **Notifications** — macOS notifications when the connection drops,
+    reconnects, stops for good (with sound), and when a new session attaches
+    from your phone. Nothing is sent while the panel is open; clicking a
+    notification opens the panel. If permission is off in System Settings,
+    the row says so.
+- **Log** (⌘L) — `~/Library/Logs/ClaudeRC.log`, **About**, **Quit** (⌘Q)
 
-Panel SwiftUI ile, `NSPopover` içinde çizilir; açık/koyu temaya uyar.
+The panel is SwiftUI inside an `NSPopover` and follows the light/dark system
+appearance.
 
-## Tasarım
+## Design
 
-- **İkon** — ince çizgili, minimal bir işaret: sağı açık bir halka (Claude'un
-  "C"si), içinde terminal prompt'u `›` ve açıklıktan dışarı çıkan tek bir
-  turuncu sinyal yayı. Uygulama ikonu `Sources/makeicon.swift` ile vektörel
-  çizilir (açık zemin, lacivert çizgi, turuncu sinyal). Menü çubuğunda aynı
-  işaretin 1.2 pt çizgili tek renkli sürümü durur; kapalıyken sinyal yayı
-  görünmez.
-- **Renkler** — Color Hunt paleti
+- **Icon** — a thin, minimal mark: a ring open on the right (Claude's "C"),
+  a terminal prompt `›` inside, and a single orange signal arc leaving the
+  opening. The app icon is drawn as vectors by `Sources/makeicon.swift`
+  (light background, navy lines, orange signal). The menu bar uses a 1.2 pt
+  monochrome version of the same mark; the signal arc is hidden while off.
+- **Colors** — Color Hunt palette
   [`#000000 #233D4D #FE7F2D #EAECF0`](https://colorhunt.co/palette/000000233d4dfe7f2deaecf0).
-  Vurgu açık temada lacivert `#233D4D`, koyu temada turuncu `#FE7F2D`;
-  sinyal öğeleri (doluluk çubuğu, QR düğmesi) her iki temada turuncu. Durum
-  renkleri paletten türetilip kontrast için ayarlandı (metin ≥ 4.5:1).
-- **Ölçüler** — 4-8-12-16 pt boşluk, 8/12 pt köşe yarıçapı, 320 pt panel.
+  The accent is navy `#233D4D` in light mode and orange `#FE7F2D` in dark
+  mode; signal elements (capacity bar, QR button) are orange in both. Status
+  colors are derived from the palette and tuned for contrast (text ≥ 4.5:1).
+- **Metrics** — 4-8-12-16 pt spacing, 8/12 pt corner radii, 320 pt panel.
 
-## Nasıl çalışıyor
+## How it works
 
-Süreç şöyle başlatılır:
-
-```
-/bin/zsh -lc "cd <dizin> && exec <claude> remote-control --name <isim>"
-```
-
-- `-l` (login shell) `.zprofile`/`.zshrc`'yi okur — launchd'nin çıplak
-  ortamında bile PATH (Homebrew, nvm) doğru olur.
-- `exec` zsh'i claude ile değiştirir; sarmalayıcı süreç kalmaz, `terminate()`
-  doğrudan claude'a gider.
-- TTY gerekmez; çıktı bir pipe'tan okunur, ANSI temizlenir ve
-  `Connected` / `Capacity: N/32` satırları panele yansıtılır.
-
-## Oturum adı neden slug olmak zorunda
-
-İlk sürüm `--name "Jane’s Mac mini"` geçiyordu (boşluk, büyük harf, kıvrık
-kesme işareti U+2019). claude'un kendi ürettiği adlar ise katı slug:
-`janes-mac-mini-2-local-virtual-aho` — yalnızca `[a-z0-9-]`. Bu ad telefondaki
-listede beklenen biçimle eşleşmiyordu. Artık girilen her ad `slugify()` ile
-bu biçime çevriliyor; kesme işareti **silinir**, ayırıcıya çevrilmez
-(`Jane’s` → `janes`, `jane-s` değil).
-
-TTY'nin bununla ilgisi yok — ölçüldü: pty'li ve pty'siz çalıştırma birebir
-aynı sonucu veriyor. Tek fark `--name`'di.
-
-## Öksüz süreç koruması
-
-Uygulama zorla öldürülürse (pkill, çökme, oturum kapanması) macOS
-`applicationWillTerminate`'i çalıştırmaz; başlatılan `claude rc` sahipsiz kalıp
-sonsuza kadar yaşar ve telefonda hayalet ortam bırakır. İki önlem:
-
-1. **Sinyal yakalama** — SIGTERM/SIGINT/SIGHUP yok sayılır, `DispatchSourceSignal`
-   ile karşılanır, çocuk öldürülüp öyle çıkılır.
-2. **PID dosyası** — `~/Library/Application Support/ClaudeRC/child.pid`.
-   Açılışta kalıntı PID varsa ve gerçekten bir `claude remote-control` süreciyse
-   (PID geri dönüşümüne karşı `ps` ile doğrulanır) kapatılır.
-
-Ayrıca aynı dizinde başka sunucu varken panelden başlatılırsa uyarı çıkar ve
-"Diğerlerini kapat, başlat" seçeneği sunulur. Temiz kapanan sunucu ortamını
-korur ve yeniden başlarken **aynı environment'ı** kullanır; kirli ölen sunucu
-ise her seferinde yeni bir ortam yaratır — session yığılmasının sebebi budur.
-
-## Log neden şişmiyor
-
-`claude rc` bir TUI: ekranı silip aynı 5-6 satırı **saniyede bir** yeniden
-çizer. Ham dökülseydi log günde ~29 MB, ayda ~880 MB büyürdü. İki kademe var:
-
-1. **Tekrar eleme** — son 16 satırda görülmüş bir satır diske hiç yazılmaz.
-   Durum değişmediği sürece yazma olmaz (ölçüldü: 30 sn'de 0 bayt).
-2. **Yazma anında kırpma** — dosya 512 KB'ı geçerse son 64 KB korunup gerisi
-   atılır. Kontrol her yazmada yapılır, açılışta değil; uygulama aylarca açık
-   kalsa da dosya tavanı geçemez.
-
-Yazılan her satır `yyyy-MM-dd HH:mm:ss` damgası alır.
-
-## Notlar
-
-- Uygulamayı taşırsanız, açılışta giriş öğesi kaydı otomatik düzeltilir.
-- Yeni bir dizinde ilk kez çalıştırmadan önce o dizinde bir kez `claude`
-  çalıştırıp workspace güven onayını vermek gerekir.
-- Uygulamadan **Çıkış** yapılırsa RC süreci de kapatılır.
-- Bilgisayar tamamen kapalıyken telefondan iş yaptırmak isterseniz bu yetmez;
-  o senaryo için cloud session (`claude --cloud`) gerekir.
-
-## Emeği geçenler
-
-- **[ocracy](https://github.com/ocracy)** — Claude RC'nin orijinal yazarı:
-  `claude remote-control` süreç yönetimi, öksüz süreç koruması (sinyal
-  yakalama + PID dosyası), aynı dizinde çift sunucu uyarısı, log tekrar
-  eleme ve kırpma, LaunchAgent ile girişte başlatma, oturum adı slug'ı ve
-  ilk menü çubuğu arayüzü.
-- **[erenbekman](https://github.com/erenbekman)** — v1.1 ve sonrası:
-  SwiftUI panel arayüzü ve UI tasarımı, Color Hunt paletiyle renk sistemi,
-  özel uygulama ve menü çubuğu ikonu, QR kod, macOS bildirimleri, universal
-  (arm64 + x86_64) build, `install.sh` ve GitHub Releases dağıtımı.
-
-## Dosyalar
+The process is started like this:
 
 ```
-Sources/ClaudeRC.swift   uygulama (süreç yönetimi + SwiftUI panel)
-Sources/makeicon.swift   uygulama ikonu üreteci
-build.sh                 derleme (universal) + zip + yerel kurulum
-install.sh               son release'i indirip kuran tek komutluk betik
-docs/panel.png           panel ekran görüntüsü
-docs/icon.png            uygulama ikonu
+/bin/zsh -lc "cd <folder> && exec <claude> remote-control --name <name>"
+```
+
+- `-l` (login shell) reads `.zprofile`/`.zshrc`, so `PATH` (Homebrew, nvm) is
+  right even in launchd's bare environment.
+- `exec` replaces zsh with claude; no wrapper process is left and
+  `terminate()` goes straight to claude.
+- No TTY is needed; output is read from a pipe, ANSI codes are stripped, and
+  the `Connected` / `Capacity: N/32` lines are reflected in the panel.
+
+## Why the session name must be a slug
+
+The first version passed `--name "Jane’s Mac mini"` (spaces, capitals, a
+curly apostrophe U+2019). The names claude generates itself are strict slugs
+such as `janes-mac-mini-2-local-virtual-aho` — only `[a-z0-9-]`. That name did
+not match the format expected in the list on the phone. Every name you enter
+is now converted with `slugify()`; the apostrophe is **removed**, not turned
+into a separator (`Jane’s` → `janes`, not `jane-s`).
+
+The TTY has nothing to do with it — measured: running with and without a pty
+gives exactly the same result. The only difference was `--name`.
+
+## Orphan protection
+
+If the app is killed (pkill, a crash, logging out), macOS does not run
+`applicationWillTerminate`; the `claude rc` it started is left without an
+owner, lives forever and leaves a ghost environment on the phone. Two
+safeguards:
+
+1. **Signal handling** — SIGTERM/SIGINT/SIGHUP are ignored and handled with a
+   `DispatchSourceSignal`; the child is stopped before the app exits.
+2. **PID file** — `~/Library/Application Support/ClaudeRC/child.pid`. On
+   launch, a leftover PID is stopped if it really is a `claude remote-control`
+   process (checked with `ps` to guard against PID reuse).
+
+Starting from the panel while another server runs in the same folder shows a
+warning with a "Stop Others and Start" option. A server that shuts down
+cleanly keeps its environment and reuses **the same environment** when it
+restarts; a server that dies uncleanly creates a new one every time — that is
+what piles up sessions.
+
+## Why the log stays small
+
+`claude rc` is a TUI: it clears the screen and redraws the same 5–6 lines
+**every second**. Dumped raw, the log would grow ~29 MB a day, ~880 MB a
+month. Two layers prevent that:
+
+1. **Deduplication** — a line seen in the last 16 lines is never written to
+   disk. Nothing is written while the state does not change (measured: 0 bytes
+   in 30 s).
+2. **Trim on write** — once the file passes 512 KB, the last 64 KB are kept
+   and the rest is dropped. The check runs on every write, not at launch, so
+   the file cannot exceed the cap even if the app stays open for months.
+
+Every written line gets a `yyyy-MM-dd HH:mm:ss` timestamp.
+
+## Notes
+
+- If you move the app, the login item registration is fixed on the next
+  launch.
+- Before the first run in a new folder, run `claude` there once and accept the
+  workspace trust prompt.
+- Quitting the app also stops the RC process.
+- If you want your phone to keep working while the computer is fully off,
+  this is not enough; that needs a cloud session (`claude --cloud`).
+
+## Credits
+
+- **[ocracy](https://github.com/ocracy)** — original author of Claude RC:
+  process management for `claude remote-control`, orphan protection (signal
+  handling + PID file), the duplicate-server warning, log deduplication and
+  trimming, launch at login via LaunchAgent, session-name slugs and the first
+  menu bar interface.
+- **[erenbekman](https://github.com/erenbekman)** — v1.1 and later: the
+  SwiftUI panel and UI design, the Color Hunt color system, the custom app and
+  menu bar icon, QR code, macOS notifications, universal (arm64 + x86_64)
+  builds, `install.sh`, GitHub Releases, the English interface and the
+  website.
+
+## Files
+
+```
+Sources/ClaudeRC.swift   the app (process management + SwiftUI panel)
+Sources/makeicon.swift   app icon generator
+build.sh                 build (universal) + zip + local install
+install.sh               one-line installer for the latest release
+docs/                    website (GitHub Pages) and README images
 ```

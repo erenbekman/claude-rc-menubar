@@ -21,7 +21,7 @@ let stroke: CGFloat = 28
 guard let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: Int(S), pixelsHigh: Int(S),
                                  bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
                                  colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0) else {
-    fatalError("bitmap oluşturulamadı")
+    fatalError("could not create bitmap")
 }
 NSGraphicsContext.saveGraphicsState()
 NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: rep)
@@ -74,6 +74,6 @@ pulse.stroke()
 
 NSGraphicsContext.restoreGraphicsState()
 
-guard let data = rep.representation(using: .png, properties: [:]) else { fatalError("png üretilemedi") }
+guard let data = rep.representation(using: .png, properties: [:]) else { fatalError("could not encode png") }
 try data.write(to: URL(fileURLWithPath: outPath))
-print("yazıldı: \(outPath)")
+print("wrote: \(outPath)")

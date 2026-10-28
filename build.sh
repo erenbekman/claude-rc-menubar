@@ -8,15 +8,15 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 APP_NAME="Claude RC"
 EXEC_NAME="ClaudeRC"
 BUNDLE_ID="com.safepluspay.claude-rc"
-VERSION="1.3"
+VERSION="1.4"
 BUILD="$HERE/build"
 BUNDLE="$BUILD/$APP_NAME.app"
 
-echo "==> Temizlik"
+echo "==> Cleaning"
 rm -rf "$BUILD"
 mkdir -p "$BUNDLE/Contents/MacOS" "$BUNDLE/Contents/Resources"
 
-echo "==> İkon üretiliyor"
+echo "==> Generating icon"
 swift "$HERE/Sources/makeicon.swift" "$BUILD/icon_1024.png" >/dev/null
 ICONSET="$BUILD/$EXEC_NAME.iconset"
 mkdir -p "$ICONSET"
@@ -50,7 +50,7 @@ cat > "$BUNDLE/Contents/Info.plist" <<PLIST
 </plist>
 PLIST
 
-echo "==> Derleniyor (arm64 + x86_64)"
+echo "==> Compiling (arm64 + x86_64)"
 for ARCH in arm64 x86_64; do
   swiftc -O \
     -swift-version 5 \
@@ -63,18 +63,18 @@ done
 lipo -create "$BUILD/$EXEC_NAME-arm64" "$BUILD/$EXEC_NAME-x86_64" \
   -output "$BUNDLE/Contents/MacOS/$EXEC_NAME"
 
-echo "==> İmzalanıyor (ad-hoc)"
+echo "==> Signing (ad-hoc)"
 codesign --force --deep --sign - "$BUNDLE" >/dev/null 2>&1 || codesign --force --sign - "$BUNDLE"
 
 rm -rf "$ICONSET" "$BUILD/icon_1024.png" "$BUILD/$EXEC_NAME-arm64" "$BUILD/$EXEC_NAME-x86_64"
 ditto -c -k --norsrc --noextattr --keepParent "$BUNDLE" "$BUILD/Claude-RC.zip"
-echo "==> Hazır: $BUNDLE"
-echo "==> Arşiv: $BUILD/Claude-RC.zip"
+echo "==> Ready: $BUNDLE"
+echo "==> Archive: $BUILD/Claude-RC.zip"
 
 if [[ "${1:-}" == "--install" ]]; then
   RUNNING="/Applications/$APP_NAME.app/Contents/MacOS/$EXEC_NAME"
   if pgrep -f "$RUNNING" >/dev/null; then
-    echo "==> UYARI: çalışan örnek kapatılacak, açık RC oturumları kesilir"
+    echo "==> WARNING: the running copy will be quit; open RC sessions will disconnect"
   fi
   pkill -f "$RUNNING" 2>/dev/null || true
   # Temiz kapanış çocuğu beklerken birkaç saniye sürebilir; gerçekten ölmesini bekle.
@@ -82,7 +82,7 @@ if [[ "${1:-}" == "--install" ]]; then
     pgrep -f "$RUNNING" >/dev/null || break
     sleep 0.5
   done
-  echo "==> /Applications'a kopyalanıyor"
+  echo "==> Copying to /Applications"
   rm -rf "/Applications/$APP_NAME.app"
   cp -R "$BUNDLE" "/Applications/"
   xattr -cr "/Applications/$APP_NAME.app" 2>/dev/null || true
@@ -93,9 +93,9 @@ if [[ "${1:-}" == "--install" ]]; then
     sleep 0.5
   done
   if pgrep -f "$RUNNING" >/dev/null; then
-    echo "==> Kuruldu ve çalışıyor: /Applications/$APP_NAME.app"
+    echo "==> Installed and running: /Applications/$APP_NAME.app"
   else
-    echo "!! Kuruldu ama başlamadı. Elle açın: open '/Applications/$APP_NAME.app'"
+    echo "!! Installed but did not start. Open it manually: open '/Applications/$APP_NAME.app'"
     exit 1
   fi
 fi

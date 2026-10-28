@@ -86,10 +86,10 @@ enum RCState {
 
     var label: String {
         switch self {
-        case .stopped:   return "Kapalı"
-        case .starting:  return "Bağlanıyor…"
-        case .connected: return "Bağlı"
-        case .failed:    return "Hata"
+        case .stopped:   return "Off"
+        case .starting:  return "Connecting…"
+        case .connected: return "Connected"
+        case .failed:    return "Error"
         }
     }
 }
@@ -215,7 +215,7 @@ final class RCController: ObservableObject {
               let pid = Int32(raw.trimmingCharacters(in: .whitespacesAndNewlines)),
               pid > 0, kill(pid, 0) == 0, looksLikeRCServer(pid) else { return false }
         kill(pid, SIGTERM)
-        logDirect("\n=== \(stamp()) · önceki çalışmadan kalan öksüz sunucu kapatıldı (pid \(pid)) ===\n")
+        logDirect("\n=== \(stamp()) · stopped an orphaned server from a previous run (pid \(pid)) ===\n")
         return true
     }
 
@@ -263,14 +263,14 @@ final class RCController: ObservableObject {
     func start(interactive: Bool = false) {
         guard !isRunning else { return }
         guard let claude = resolveClaude() else {
-            fail("`claude` komutu bulunamadı. Homebrew ile kurulu mu?")
+            fail("`claude` command not found. Is Claude Code installed?")
             return
         }
         var isDir: ObjCBool = false
         guard FileManager.default.fileExists(atPath: workDir, isDirectory: &isDir), isDir.boolValue else {
             // Ilk acilista (ozellikle baska bir makinede) kayitli dizin
             // bulunmayabilir; kullaniciya ne yapacagini soyle.
-            fail("Çalışma dizini yok. Panelden “Çalışma dizini › Klasör Seç…” ile bir proje klasörü seçin.")
+            fail("Working folder not found. Pick a project folder under “Working folder › Choose Folder…”.")
             return
         }
 
@@ -282,11 +282,11 @@ final class RCController: ObservableObject {
             if interactive, let ask = confirmDuplicates {
                 switch ask(others.count, workDir) {
                 case .stopOthers: for pid in others { kill(pid, SIGTERM) }
-                case .proceed:    dupWarning = "Bu dizinde \(others.count) sunucu daha çalışıyor."
+                case .proceed:    dupWarning = "\(others.count) other server(s) running in this folder."
                 case .cancel:     return
                 }
             } else {
-                dupWarning = "Bu dizinde \(others.count) sunucu daha çalışıyor."
+                dupWarning = "\(others.count) other server(s) running in this folder."
             }
         }
 
@@ -301,10 +301,10 @@ final class RCController: ObservableObject {
         startedAt = Date()
 
         openLog()
-        appendLog("\n=== \(stamp()) · başlatılıyor · \(workDir) ===\n")
+        appendLog("\n=== \(stamp()) · starting · \(workDir) ===\n")
         if let w = dupWarning {
             lastError = w
-            appendLog("\(stamp())  UYARI: \(w)\n")
+            appendLog("\(stamp())  WARNING: \(w)\n")
         }
 
         // `--name` SADECE slug bicimde gecilir. Once "Jane’s Mac mini" (bosluk,
@@ -348,7 +348,7 @@ final class RCController: ObservableObject {
             writePidFile(p.processIdentifier)
             if UserDefaults.standard.bool(forKey: Keys.keepAwake) { acquireSleepAssertion() }
         } catch {
-            fail("Başlatılamadı: \(error.localizedDescription)")
+            fail("Couldn't start: \(error.localizedDescription)")
             return
         }
         notifyChange()
@@ -359,7 +359,7 @@ final class RCController: ObservableObject {
         restartAttempts = 0
         releaseSleepAssertion()
         if let p = process, p.isRunning {
-            appendLog("\n=== \(stamp()) · durduruluyor ===\n")
+            appendLog("\n=== \(stamp()) · stopping ===\n")
             p.terminate()
             // 3 sn içinde kapanmazsa zorla
             DispatchQueue.main.asyncAfter(deadline: .now() + 3) { [weak p] in
@@ -422,7 +422,7 @@ final class RCController: ObservableObject {
         let lower = lineBuffer.lowercased()
         for needle in ["not logged in", "log in", "unauthorized", "subscription", "trust"] {
             if lower.contains(needle), state != .connected {
-                lastError = "Oturum/izin sorunu olabilir — logu kontrol edin."
+                lastError = "Possible sign-in or permission problem — check the log."
                 changed = true
                 break
             }
@@ -437,7 +437,7 @@ final class RCController: ObservableObject {
         outPipe?.fileHandleForReading.readabilityHandler = nil
         outPipe = nil
         releaseSleepAssertion()
-        appendLog("\n=== \(stamp()) · süreç sonlandı (kod \(status)) ===\n")
+        appendLog("\n=== \(stamp()) · process exited (code \(status)) ===\n")
         closeLog()
 
         if userStopped {
@@ -451,7 +451,7 @@ final class RCController: ObservableObject {
         if UserDefaults.standard.bool(forKey: Keys.autoRestart), restartAttempts < 5 {
             restartAttempts += 1
             state = .starting
-            lastError = "Beklenmedik çıkış, yeniden deneniyor (\(restartAttempts)/5)…"
+            lastError = "Unexpected exit, retrying (\(restartAttempts)/5)…"
             notifyChange()
             let delay = Double(restartAttempts) * 3.0
             DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
@@ -460,7 +460,7 @@ final class RCController: ObservableObject {
             }
         } else {
             state = .failed
-            lastError = "Süreç sonlandı (kod \(status)). Logu kontrol edin."
+            lastError = "Process exited (code \(status)). Check the log."
             attached = 0; capacity = 0; envURL = nil
             notifyChange()
         }
@@ -469,7 +469,7 @@ final class RCController: ObservableObject {
     private func fail(_ msg: String) {
         state = .failed
         lastError = msg
-        appendLog("\(stamp())  HATA: \(msg)\n")
+        appendLog("\(stamp())  ERROR: \(msg)\n")
         notifyChange()
     }
 
@@ -484,7 +484,7 @@ final class RCController: ObservableObject {
         guard sleepAssertion == 0 else { return }
         IOPMAssertionCreateWithName(kIOPMAssertionTypeNoIdleSleep as CFString,
                                     IOPMAssertionLevel(kIOPMAssertionLevelOn),
-                                    "Claude RC bağlı" as CFString,
+                                    "Claude RC connected" as CFString,
                                     &sleepAssertion)
     }
 
@@ -595,7 +595,7 @@ final class RCController: ObservableObject {
             tail = (try? fh.readToEnd()) ?? Data()
             try? fh.close()
         }
-        let header = Data("=== \(stamp()) · log kirpildi (tavan \(maxLogBytes / 1024) KB) ===\n".utf8)
+        let header = Data("=== \(stamp()) · log trimmed (cap \(maxLogBytes / 1024) KB) ===\n".utf8)
         try? (header + tail).write(to: logURL)
         logHandle = try? FileHandle(forWritingTo: logURL)
         bytesWritten = (try? logHandle?.seekToEnd()) ?? 0
@@ -833,17 +833,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         switch (lastState, state) {
         case (.connected, .starting):
             recovering = true
-            post("Bağlantı koptu", "Claude RC yeniden bağlanmayı deniyor…")
+            post("Connection lost", "Claude RC is trying to reconnect…")
         case (let from, .failed) where from != .failed:
             recovering = false
-            post("Claude RC durdu", rc.lastError ?? "Ayrıntılar logda.", sound: true)
+            post("Claude RC stopped", rc.lastError ?? "Details are in the log.", sound: true)
         case (_, .stopped):
             recovering = false
         case (.starting, .connected) where recovering:
             recovering = false
-            post("Yeniden bağlandı", "Remote Control tekrar çalışıyor.")
+            post("Reconnected", "Remote Control is running again.")
         case (.connected, .connected) where attached > lastAttached:
-            post("Yeni oturum bağlandı", "\(attached) / \(rc.capacity) oturum açık")
+            post("New session connected", "\(attached) / \(rc.capacity) sessions open")
         default:
             break
         }
@@ -870,16 +870,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         closePanel()
         NSApp.activate(ignoringOtherApps: true)
         let a = NSAlert()
-        a.messageText = "Bu dizinde zaten \(count) RC sunucusu çalışıyor"
+        a.messageText = "\(count) RC server(s) already running in this folder"
         a.informativeText = """
-        Her sunucu telefonda ayrı bir ortam olarak görünür; üst üste binince \
-        hangisinin hangisi olduğunu ayırt etmek zorlaşır.
+        Each server shows up as a separate environment on your phone; \
+        with several running it is hard to tell which one is which.
 
         \(dir)
         """
-        a.addButton(withTitle: "Diğerlerini kapat, başlat")
-        a.addButton(withTitle: "Yine de başlat")
-        a.addButton(withTitle: "Vazgeç")
+        a.addButton(withTitle: "Stop Others and Start")
+        a.addButton(withTitle: "Start Anyway")
+        a.addButton(withTitle: "Cancel")
         switch a.runModal() {
         case .alertFirstButtonReturn:  return .stopOthers
         case .alertSecondButtonReturn: return .proceed
@@ -895,8 +895,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         panel.canChooseFiles = false
         panel.allowsMultipleSelection = false
         panel.directoryURL = URL(fileURLWithPath: rc.workDir)
-        panel.prompt = "Seç"
-        panel.message = "Claude RC'nin çalışacağı klasörü seçin"
+        panel.prompt = "Choose"
+        panel.message = "Choose the folder Claude RC should run in"
         if panel.runModal() == .OK, let url = panel.url { setWorkDir(url.path) }
     }
 
@@ -951,21 +951,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let a = NSAlert()
         let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "?"
         a.messageText = "Claude RC \(version)"
-        let claudePath = rc.resolveClaude() ?? "bulunamadı"
+        let claudePath = rc.resolveClaude() ?? "not found"
         a.informativeText = """
-        Menü çubuğundan `claude remote-control` sürecini yönetir. \
-        Süreç açıkken telefondan veya claude.ai/code üzerinden bu Mac'e bağlanabilirsiniz.
+        Runs `claude remote-control` from the menu bar. \
+        While it is running you can connect to this Mac from your phone or claude.ai/code.
 
-        Dizin: \(rc.workDir)
-        Oturum adı: \(rc.sessionLabel ?? (rc.customName.isEmpty ? "otomatik (claude üretir)" : rc.customName))
+        Folder: \(rc.workDir)
+        Session name: \(rc.sessionLabel ?? (rc.customName.isEmpty ? "automatic (picked by claude)" : rc.customName))
         claude: \(claudePath)
         Log: \(rc.logURL.path)
-        Giriş öğesi: \(LoginItem.isEnabled ? LoginItem.plistURL.path : "kapalı")
+        Login item: \(LoginItem.isEnabled ? LoginItem.plistURL.path : "off")
 
-        Orijinal: github.com/ocracy
-        Panel, ikon ve ekler: github.com/erenbekman
+        Original: github.com/ocracy
+        Panel, icon and extras: github.com/erenbekman
         """
-        a.addButton(withTitle: "Tamam")
+        a.addButton(withTitle: "OK")
         a.runModal()
     }
 
@@ -1124,14 +1124,14 @@ struct PanelView: View {
             case .connected:
                 connectedInfo
             case .starting:
-                placeholder(icon: nil, title: "Bağlanıyor…",
-                            detail: "claude remote-control başlatılıyor.")
+                placeholder(icon: nil, title: "Connecting…",
+                            detail: "Starting claude remote-control.")
             case .stopped:
-                placeholder(icon: "antenna.radiowaves.left.and.right.slash", title: "Remote Control kapalı",
-                            detail: "Başlatınca telefondan veya claude.ai/code'dan bu Mac'e bağlanabilirsiniz.")
+                placeholder(icon: "antenna.radiowaves.left.and.right.slash", title: "Remote Control is off",
+                            detail: "Start it to reach this Mac from your phone or claude.ai/code.")
             case .failed:
-                placeholder(icon: "exclamationmark.triangle", title: "Bağlantı kurulamadı",
-                            detail: rc.lastError ?? "Ayrıntılar logda. Tekrar denemek için Başlat'a basın.")
+                placeholder(icon: "exclamationmark.triangle", title: "Couldn't connect",
+                            detail: rc.lastError ?? "Details are in the log. Press Start to try again.")
             }
         }
         .padding(Theme.space3)
@@ -1142,7 +1142,7 @@ struct PanelView: View {
     private var connectedInfo: some View {
         VStack(alignment: .leading, spacing: Theme.space2) {
             HStack {
-                fieldTitle("Oturum")
+                fieldTitle("Session")
                 Spacer()
                 if let started = rc.startedAt {
                     Label { Text(started, style: .timer).monospacedDigit() } icon: { Image(systemName: "clock") }
@@ -1151,7 +1151,7 @@ struct PanelView: View {
                 }
             }
             HStack(spacing: Theme.space2) {
-                Text(rc.sessionLabel ?? (rc.customName.isEmpty ? "otomatik" : rc.customName))
+                Text(rc.sessionLabel ?? (rc.customName.isEmpty ? "automatic" : rc.customName))
                     .font(.system(size: 12.5, weight: .medium, design: .monospaced))
                     .lineLimit(1)
                     .truncationMode(.middle)
@@ -1162,12 +1162,12 @@ struct PanelView: View {
                         Image(systemName: copied == "session" ? "checkmark" : "doc.on.doc")
                     }
                     .buttonStyle(GhostButtonStyle())
-                    .help("Oturum adını kopyala")
+                    .help("Copy session name")
                 }
             }
             if rc.capacity > 0 {
                 CapacityBar(value: rc.attached, total: rc.capacity)
-                Text("\(rc.attached) / \(rc.capacity) oturum bağlı")
+                Text("\(rc.attached) / \(rc.capacity) sessions connected")
                     .font(.system(size: 11))
                     .foregroundStyle(.secondary)
             }
@@ -1191,13 +1191,13 @@ struct PanelView: View {
                             Image(systemName: "qrcode")
                         }
                     }
-                    .help(qrVisible ? "QR kodu gizle" : "QR kodu göster")
+                    .help(qrVisible ? "Hide QR code" : "Show QR code")
                     Button { app.copyEnv(); flash("link") } label: {
                         Image(systemName: copied == "link" ? "checkmark" : "doc.on.doc")
                     }
-                    .help("Linki kopyala")
+                    .help("Copy link")
                     Button(action: app.openEnv) { Image(systemName: "arrow.up.right.square") }
-                        .help("Tarayıcıda aç")
+                        .help("Open in browser")
                 }
                 .buttonStyle(GhostButtonStyle())
                 .padding(.leading, Theme.space2)
@@ -1214,7 +1214,7 @@ struct PanelView: View {
                             .frame(width: 148, height: 148)
                             .padding(Theme.space2)
                             .background(RoundedRectangle(cornerRadius: Theme.radius, style: .continuous).fill(.white))
-                        Text("Telefonun kamerasıyla okutun")
+                        Text("Scan with your phone's camera")
                             .font(.system(size: 11))
                             .foregroundStyle(.secondary)
                     }
@@ -1260,7 +1260,7 @@ struct PanelView: View {
     private var controls: some View {
         HStack(spacing: Theme.space2) {
             Button(action: app.toggleRC) {
-                Label(rc.isRunning ? "Durdur" : "Başlat", systemImage: rc.isRunning ? "stop.fill" : "play.fill")
+                Label(rc.isRunning ? "Stop" : "Start", systemImage: rc.isRunning ? "stop.fill" : "play.fill")
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(SoftButtonStyle(tint: rc.isRunning ? Theme.danger : Theme.accent, prominent: !rc.isRunning))
@@ -1270,20 +1270,20 @@ struct PanelView: View {
                 .buttonStyle(SoftButtonStyle(tint: .primary))
                 .disabled(!rc.isRunning)
                 .keyboardShortcut("r")
-                .help("Yeniden başlat")
+                .help("Restart")
         }
     }
 
     private var workspace: some View {
         VStack(alignment: .leading, spacing: Theme.space2) {
-            fieldTitle("Çalışma dizini")
+            fieldTitle("Working folder")
             Menu {
                 ForEach(recentDirs, id: \.self) { dir in
                     Toggle(abbreviate(dir), isOn: Binding(get: { dir == rc.workDir },
                                                           set: { _ in app.setWorkDir(dir) }))
                 }
                 Divider()
-                Button("Klasör Seç…", action: app.chooseDir)
+                Button("Choose Folder…", action: app.chooseDir)
             } label: {
                 Label(abbreviate(rc.workDir), systemImage: "folder")
             }
@@ -1293,14 +1293,14 @@ struct PanelView: View {
             .frame(maxWidth: .infinity, minHeight: 30, alignment: .leading)
             .background(surface(cornerRadius: Theme.radius))
 
-            fieldTitle("Oturum adı")
+            fieldTitle("Session name")
             HStack(spacing: Theme.space2) {
-                TextField("otomatik", text: $nameDraft)
+                TextField("automatic", text: $nameDraft)
                     .textFieldStyle(.plain)
                     .font(.system(size: 12, design: .monospaced))
                     .onSubmit(commitName)
                 if nameChanged {
-                    Button("Kaydet", action: commitName)
+                    Button("Save", action: commitName)
                         .buttonStyle(SoftButtonStyle(tint: Theme.accent, prominent: true, height: 22))
                 }
             }
@@ -1320,7 +1320,7 @@ struct PanelView: View {
                 withAnimation(.easeOut(duration: Theme.fast)) { settingsExpanded.toggle() }
             } label: {
                 HStack {
-                    fieldTitle("Ayarlar")
+                    fieldTitle("Settings")
                     Spacer()
                     Image(systemName: "chevron.right")
                         .font(.system(size: 10, weight: .semibold))
@@ -1332,17 +1332,17 @@ struct PanelView: View {
             .buttonStyle(.plain)
 
             if settingsExpanded {
-                settingRow("Girişte otomatik başlat", "Mac açıldığında uygulama da açılır",
+                settingRow("Launch at login", "Opens Claude RC when you log in",
                            isOn: Binding(get: { LoginItem.isEnabled }, set: app.setLoginItem))
-                settingRow("Açılınca RC'yi başlat", "Uygulama açıldıktan 3 sn sonra",
+                settingRow("Start RC on launch", "3 seconds after the app opens",
                            isOn: flag(Keys.autoStart))
-                settingRow("Mac boşta uyumasın", "Yalnızca RC çalışırken",
+                settingRow("Prevent idle sleep", "Only while RC is running",
                            isOn: flag(Keys.keepAwake))
-                settingRow("Çökerse yeniden dene", "Artan gecikmeyle 5 deneme",
+                settingRow("Retry after crashes", "5 attempts with growing delays",
                            isOn: flag(Keys.autoRestart))
-                settingRow("Bildirimler",
-                           app.notificationsDenied ? "İzin kapalı: Sistem Ayarları › Bildirimler"
-                                                   : "Kopma, hata ve yeni oturumda",
+                settingRow("Notifications",
+                           app.notificationsDenied ? "Off in System Settings › Notifications"
+                                                   : "Drops, errors and new sessions",
                            isOn: flag(Keys.notifications))
             }
         }
@@ -1368,9 +1368,9 @@ struct PanelView: View {
             Button(action: app.showLog) { Label("Log", systemImage: "doc.text") }
                 .keyboardShortcut("l")
                 .disabled(!FileManager.default.fileExists(atPath: rc.logURL.path))
-            Button(action: app.showAbout) { Label("Hakkında", systemImage: "info.circle") }
+            Button(action: app.showAbout) { Label("About", systemImage: "info.circle") }
             Spacer()
-            Button(action: app.quit) { Label("Çıkış", systemImage: "power") }
+            Button(action: app.quit) { Label("Quit", systemImage: "power") }
                 .keyboardShortcut("q")
         }
         .buttonStyle(GhostButtonStyle())
@@ -1400,9 +1400,9 @@ struct PanelView: View {
 
     private var nameHint: String {
         let slug = slugify(nameDraft)
-        if slug.isEmpty { return "Boş bırakılırsa claude rastgele bir ad üretir." }
-        if slug != nameDraft { return "Kaydedilecek ad: \(slug)" }
-        return "claude.ai/code ve telefonda bu adla görünür."
+        if slug.isEmpty { return "Leave empty to let claude pick a random name." }
+        if slug != nameDraft { return "Will be saved as: \(slug)" }
+        return "The name shown on claude.ai/code and your phone."
     }
 
     private func commitName() {
